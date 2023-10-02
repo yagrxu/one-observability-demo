@@ -78,6 +78,16 @@ export class Services extends Stack {
             removalPolicy:  RemovalPolicy.DESTROY
         });
 
+        const readCapacity = dynamodb_petadoption.autoScaleReadCapacity({
+            minCapacity: 10,
+            maxCapacity: 1000
+        });
+        
+        readCapacity.scaleOnUtilization({
+            targetUtilizationPercent: 60
+        });
+
+
         dynamodb_petadoption.metric('WriteThrottleEvents',{statistic:"avg"}).createAlarm(this, 'WriteThrottleEvents-BasicAlarm', {
           threshold: 0,
           treatMissingData: TreatMissingData.NOT_BREACHING,
@@ -179,7 +189,7 @@ export class Services extends Stack {
 
         const ecsPayForAdoptionCluster = new ecs.Cluster(this, "PayForAdoption", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsights: false
         });
         // PayForAdoption service definitions-----------------------------------------------------------------------
         const payForAdoptionService = new PayForAdoptionService(this, 'pay-for-adoption-service', {
@@ -201,7 +211,7 @@ export class Services extends Stack {
 
         const ecsPetListAdoptionCluster = new ecs.Cluster(this, "PetListAdoptions", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsights: false
         });
         // PetListAdoptions service definitions-----------------------------------------------------------------------
         const listAdoptionsService = new ListAdoptionsService(this, 'list-adoptions-service', {
@@ -222,7 +232,7 @@ export class Services extends Stack {
 
         const ecsPetSearchCluster = new ecs.Cluster(this, "PetSearch", {
             vpc: theVPC,
-            containerInsights: true
+            containerInsights: false
         });
         // PetSearch service definitions-----------------------------------------------------------------------
         const searchService = new SearchService(this, 'search-service', {
@@ -570,49 +580,49 @@ export class Services extends Stack {
         awsLoadBalancerManifest.node.addDependency(waitForLBServiceAccount);
 
         // NOTE: amazon-cloudwatch namespace is created here!!
-        var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8")) as Record<string,any>[];
-        fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
+        // var fluentbitYaml = yaml.loadAll(readFileSync("./resources/cwagent-fluent-bit-quickstart.yaml","utf8")) as Record<string,any>[];
+        // fluentbitYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "fluentbit_Role", { value : `${cwserviceaccount.roleArn}` });
 
-        fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
-            agent: {
-                region: region  },
-            logs: {
-                metrics_collected: {
-                    kubernetes: {
-                        cluster_name: "PetSite",
-                        metrics_collection_interval: 60
-                    }
-                },
-                force_flush_interval: 5
+        // fluentbitYaml[4].data["cwagentconfig.json"] = JSON.stringify({
+        //     agent: {
+        //         region: region  },
+        //     logs: {
+        //         metrics_collected: {
+        //             kubernetes: {
+        //                 cluster_name: "PetSite",
+        //                 metrics_collection_interval: 60
+        //             }
+        //         },
+        //         force_flush_interval: 5
 
-                }
+        //         }
 
-            });
+        //     });
 
-        fluentbitYaml[6].data["cluster.name"] = "PetSite";
-        fluentbitYaml[6].data["logs.region"] = region;
-        fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });
+        // fluentbitYaml[6].data["cluster.name"] = "PetSite";
+        // fluentbitYaml[6].data["logs.region"] = region;
+        // fluentbitYaml[7].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "cloudwatch_Role", { value : `${cwserviceaccount.roleArn}` });
         
-        // The `cluster-info` configmap is used by the current Python implementation for the `AwsEksResourceDetector`
-        fluentbitYaml[12].data["cluster.name"] = "PetSite";
-        fluentbitYaml[12].data["logs.region"] = region;
+        // // The `cluster-info` configmap is used by the current Python implementation for the `AwsEksResourceDetector`
+        // fluentbitYaml[12].data["cluster.name"] = "PetSite";
+        // fluentbitYaml[12].data["logs.region"] = region;
 
-        const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
-            cluster: cluster,
-            manifest: fluentbitYaml
-        });
+        // const fluentbitManifest = new eks.KubernetesManifest(this,"cloudwatcheployment",{
+        //     cluster: cluster,
+        //     manifest: fluentbitYaml
+        // });
 
         // CloudWatch agent for prometheus metrics
         var prometheusYaml = yaml.loadAll(readFileSync("./resources/prometheus-eks.yaml","utf8")) as Record<string,any>[];
 
-        prometheusYaml[0].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
+        prometheusYaml[1].metadata.annotations["eks.amazonaws.com/role-arn"] = new CfnJson(this, "prometheus_Role", { value : `${cwserviceaccount.roleArn}` });
 
         const prometheusManifest = new eks.KubernetesManifest(this,"prometheusdeployment",{
             cluster: cluster,
             manifest: prometheusYaml
         });
 
-        prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
+        // prometheusManifest.node.addDependency(fluentbitManifest); // Namespace creation dependency
 
         
 var dashboardBody = readFileSync("./resources/cw_dashboard_fluent_bit.json","utf-8");
